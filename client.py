@@ -52,15 +52,15 @@ hello_message = {
 # send hello message to server
 socket.sendall(json.dumps(hello_message).encode() + b'\n')
 
-# Receive data from the server until a newline character is encountered
+# Receive data from the server until \n is detected
 received_data = b''
 while True:
-    chunk = socket.recv(1024)
-    if not chunk:
-        break  # Connection closed or no more data
-    received_data += chunk
-    if b'\n' in chunk:
-        break  # Reached end of message marked by newline
+    message = socket.recv(1024)
+    if not message:
+        break
+    received_data += message
+    if b'\n' in message:
+        break
 
 # get reply from server
 start_data = received_data.decode().strip()
@@ -119,10 +119,7 @@ def grey_all_duplicates(word, letter, userinput):
 
 def analyze_result(wordUsed, userInput, wordList):
     index = 0
-
     number = ''.join(str(x) for x in userInput)
-
-
     for element in number:
         emptylist = []
         if element == '0':
@@ -176,14 +173,14 @@ def send_guess(GAME_ID, word):
     # send hello message to server
     socket.sendall(json.dumps(guess_message).encode() + b'\n')
 
-    # Receive data from the server until a newline character is encountered
+    # Receive data from the server until \n is detected
     received_data = b''
     while True:
-        chunk = socket.recv(1024)
-        if not chunk:
+        message = socket.recv(1024)
+        if not message:
             break
-        received_data += chunk
-        if b'\n' in chunk:
+        received_data += message
+        if b'\n' in message:
             break
 
     # get reply from server
