@@ -72,9 +72,6 @@ GAME_ID = start_message.get("id")
 
 # Wordle solver implementation
 
-# Methods
-
-
 def filter_words_no_letter(wordList, letter):
     emptyList = []
     for everyword in wordList:
@@ -118,14 +115,6 @@ def grey_all_duplicates(word, letter, userinput):
         if word[i] == letter and userinput[i] != '0':
             return False
     return True
-
-def prioritize_unique_letters(optimizedlist):
-    emptylist = []
-    for words in optimizedlist:
-        if len(set(words)) == len(words):
-            emptylist.append(words)
-
-    return emptylist
 
 
 def analyze_result(wordUsed, userInput, wordList):
@@ -192,21 +181,22 @@ def send_guess(GAME_ID, word):
     while True:
         chunk = socket.recv(1024)
         if not chunk:
-            break  # Connection closed or no more data
+            break
         received_data += chunk
         if b'\n' in chunk:
-            break  # Reached end of message marked by newline
+            break
 
     # get reply from server
     start_data = received_data.decode().strip()
     start_message = json.loads(start_data)
     return start_message
 
+
+# Retrieves flag with while loop
 MESSAGE_TYPE = ''
 FLAG = ''
 while MESSAGE_TYPE != 'bye':
     message = send_guess(GAME_ID, random.choice(words_to_list))
-
     if message["type"] == 'bye':
         print(message["flag"])
         break
@@ -218,7 +208,6 @@ while MESSAGE_TYPE != 'bye':
         stringhint += str(number)
     GAME_ID = message["id"]
     optimizedlist = get_guess(hint, words_to_list, wordused)
-
     words_to_list = optimizedlist
 
 
