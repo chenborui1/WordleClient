@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import socket
 import json
 import argparse
@@ -14,7 +16,7 @@ words = file.read()
 words_to_list = words.split("\n")
 file.close()
 
-
+# Parser to get commmand arguments
 parser = argparse.ArgumentParser()
 
 parser.add_argument('-p', '--port', type=int, default=27993, help='Port to listen on')
@@ -27,51 +29,55 @@ HOST = command.hostname
 PORT = command.port
 SECURE = command.secure
 
+# If default port is supplied and requires secure connection port should be 27994
 if command.port == 27993 and command.secure is True:
     PORT = 27994
 
+#Try to create socket communication and send hello message
+try:
+    # Create a socket
+    socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+    # Check connection type
+    if SECURE:
+        context = ssl.create_default_context()
+        socket = context.wrap_socket(socket, server_hostname=HOST)
 
-# Create a socket
-socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # connect to server
+    socket.connect((HOST, PORT))
 
-# Check connection type
-if SECURE:
-    context = ssl.create_default_context()
-    socket = context.wrap_socket(socket, server_hostname=HOST)
+    # hello message
+    hello_message = {
+        "type": "hello",
+        "northeastern_username": command.username
+    }
 
-# connect to server
-socket.connect((HOST, PORT))
+    # send hello message to server
+    socket.sendall(json.dumps(hello_message).encode() + b'\n')
 
-# hello message
-hello_message = {
-    "type": "hello",
-    "northeastern_username": command.username
-}
+    # Receive data from the server until \n is detected
+    received_data = b''
+    while True:
+        message = socket.recv(1024)
+        if not message:
+            break
+        received_data += message
+        if b'\n' in message:
+            break
 
-# send hello message to server
-socket.sendall(json.dumps(hello_message).encode() + b'\n')
+    # get reply from server
+    start_data = received_data.decode().strip()
+    start_message = json.loads(start_data)
 
-# Receive data from the server until \n is detected
-received_data = b''
-while True:
-    message = socket.recv(1024)
-    if not message:
-        break
-    received_data += message
-    if b'\n' in message:
-        break
-
-# get reply from server
-start_data = received_data.decode().strip()
-start_message = json.loads(start_data)
-
-# store game ID
-GAME_ID = start_message.get("id")
+    # store game ID
+    GAME_ID = start_message.get("id")
+except Exception as e:
+    print(f"Error in socket communication for hello message: {e}")
 
 
 # Wordle solver implementation
 
+#  Returns a list of words that does not contain a specified letter
 def filter_words_no_letter(wordList, letter):
     emptyList = []
     for everyword in wordList:
@@ -80,7 +86,7 @@ def filter_words_no_letter(wordList, letter):
             emptyList.append(everyword)
     return emptyList
 
-
+# Returns a list of words that contains a specified letter
 def filter_words_with_letter(wordList, letter):
     emptyList = []
     for everyword in wordList:
@@ -88,6 +94,7 @@ def filter_words_with_letter(wordList, letter):
             emptyList.append(everyword)
     return emptyList
 
+# Returns list of words that does not have a letter in the specified index
 def filter_words_wrong_position(wordList, index, letter):
     emptyList = []
     for everyword in wordList:
@@ -95,6 +102,7 @@ def filter_words_wrong_position(wordList, index, letter):
             emptyList.append(everyword)
     return emptyList
 
+# Returns list of words that has a letter in the specified index
 def filter_words_correct_position(wordList, index, letter):
     emptyList = []
     for everyword in wordList:
@@ -102,21 +110,21 @@ def filter_words_correct_position(wordList, index, letter):
             emptyList.append(everyword)
     return emptyList
 
-
+# Returns whether a word contains a duplicate letter
 def contains_duplicate_letter(word, index):
     for i in range(len(word)):
         if i != index and word[i] == word[index]:
             return True
     return False
 
-
+# Returns whether duplicate letters in word guesses are all grey
 def grey_all_duplicates(word, letter, userinput):
     for i in range(5):
         if word[i] == letter and userinput[i] != '0':
             return False
     return True
 
-
+# Returns list of words that are possible from the given word used and previous hint input
 def analyze_result(wordUsed, userInput, wordList):
     index = 0
     number = ''.join(str(x) for x in userInput)
@@ -157,12 +165,13 @@ def analyze_result(wordUsed, userInput, wordList):
         index += 1
     return wordList
 
-
+# Returns the word to guess
 def get_guess(userInput, wordlist, word):
     startWord = word
     optimizedList = analyze_result(startWord, userInput, wordlist)
     return optimizedList
 
+# Method to send a guess to server and return the message received from server
 def send_guess(GAME_ID, word):
     guess_message = {
         "type": "guess",
@@ -170,7 +179,7 @@ def send_guess(GAME_ID, word):
         "word": word
     }
 
-    # send hello message to server
+    # send guess message to server
     socket.sendall(json.dumps(guess_message).encode() + b'\n')
 
     # Receive data from the server until \n is detected
@@ -188,24 +197,29 @@ def send_guess(GAME_ID, word):
     start_message = json.loads(start_data)
     return start_message
 
+# Try to send and get flag from socket communcation
+try:
+    # Retrieves flag with while loop until server message is 'bye'
+    MESSAGE_TYPE = ''
+    FLAG = ''
+    while MESSAGE_TYPE != 'bye':
+        message = send_guess(GAME_ID, random.choice(words_to_list))
+        if message["type"] == 'bye':
+            print(message["flag"])
+            break
+        guesses = message["guesses"][-1]
+        hint = guesses["marks"]
+        wordused = guesses["word"]
+        stringhint = ""
+        for number in hint:
+            stringhint += str(number)
+        GAME_ID = message["id"]
+        optimizedlist = get_guess(hint, words_to_list, wordused)
 
-# Retrieves flag with while loop
-MESSAGE_TYPE = ''
-FLAG = ''
-while MESSAGE_TYPE != 'bye':
-    message = send_guess(GAME_ID, random.choice(words_to_list))
-    if message["type"] == 'bye':
-        print(message["flag"])
-        break
-    guesses = message["guesses"][-1]
-    hint = guesses["marks"]
-    wordused = guesses["word"]
-    stringhint = ""
-    for number in hint:
-        stringhint += str(number)
-    GAME_ID = message["id"]
-    optimizedlist = get_guess(hint, words_to_list, wordused)
-    words_to_list = optimizedlist
+        # Overwrite words_to_list to reduce optimized list size every guess iteration
+        words_to_list = optimizedlist
+except Exception as e:
+    print(f"Error during socket communication for making guesses: {e}")
 
 
 
